@@ -1,0 +1,5 @@
+{
+  "buildCommand": "vite build --config vite.static.config.ts",
+  "outputDirectory": "dist",
+  "installCommand": "npm install"
+}
