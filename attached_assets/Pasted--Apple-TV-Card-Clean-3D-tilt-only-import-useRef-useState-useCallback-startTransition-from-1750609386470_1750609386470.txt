@@ -1,0 +1,224 @@
+// Apple TV Card - Clean 3D tilt only
+import { useRef, useState, useCallback, startTransition } from "react"
+import {
+    addPropertyControls,
+    ControlType,
+    useIsStaticRenderer,
+    RenderTarget,
+} from "framer"
+
+const defaultImage = {
+    src: "https://framerusercontent.com/images/GfGkADagM4KEibNcIiRUWlfrR0.jpg",
+    alt: "Apple TV Card",
+}
+
+interface Image {
+    src: string
+    alt?: string
+}
+
+interface AppleTVTiltCardProps {
+    image: Image
+    scale: number
+    tilt: number
+    transition: number
+    size: number
+    style?: React.CSSProperties
+}
+
+export default function AppleTVTiltCard(props: AppleTVTiltCardProps) {
+    const {
+        image = defaultImage,
+        scale = 1.05,
+        tilt = 15,
+        transition = 0.6,
+        size = 320,
+        style,
+    } = props
+
+    const cardRef = useRef<HTMLDivElement>(null)
+    const [isHovered, setIsHovered] = useState(false)
+    const [mousePos, setMousePos] = useState({ x: 0.5, y: 0.5 })
+    const isStatic = useIsStaticRenderer()
+
+    const handleMouseEnter = useCallback(() => {
+        startTransition(() => setIsHovered(true))
+    }, [])
+
+    const handleMouseLeave = useCallback(() => {
+        startTransition(() => {
+            setIsHovered(false)
+            setMousePos({ x: 0.5, y: 0.5 })
+        })
+    }, [])
+
+    const handleMouseMove = useCallback((e: any) => {
+        if (!cardRef.current) return
+
+        const rect = cardRef.current.getBoundingClientRect()
+        const x = (e.clientX - rect.left) / rect.width
+        const y = (e.clientY - rect.top) / rect.height
+
+        startTransition(() => {
+            setMousePos({
+                x: Math.max(0, Math.min(1, x)),
+                y: Math.max(0, Math.min(1, y)),
+            })
+        })
+    }, [])
+
+    const handleTouchStart = useCallback(() => {
+        startTransition(() => setIsHovered(true))
+    }, [])
+
+    const handleTouchEnd = useCallback(() => {
+        startTransition(() => {
+            setIsHovered(false)
+            setMousePos({ x: 0.5, y: 0.5 })
+        })
+    }, [])
+
+    const handleTouchMove = useCallback((e: any) => {
+        if (!cardRef.current || !e.touches[0]) return
+
+        const rect = cardRef.current.getBoundingClientRect()
+        const touch = e.touches[0]
+        const x = (touch.clientX - rect.left) / rect.width
+        const y = (touch.clientY - rect.top) / rect.height
+
+        startTransition(() => {
+            setMousePos({
+                x: Math.max(0, Math.min(1, x)),
+                y: Math.max(0, Math.min(1, y)),
+            })
+        })
+    }, [])
+
+    // Calculate 3D transforms
+    const rotateX = isHovered ? (mousePos.y - 0.5) * -tilt : 0
+    const rotateY = isHovered ? (mousePos.x - 0.5) * tilt : 0
+    const currentScale = isHovered ? scale : 1
+
+    const containerStyle = {
+        width: size,
+        height: size,
+        maxWidth: "100%",
+        maxHeight: "100%",
+        display: "block",
+        ...style,
+    }
+
+    if (isStatic || RenderTarget.current() === RenderTarget.thumbnail) {
+        return (
+            <div
+                style={{
+                    ...containerStyle,
+                    position: "relative",
+                    overflow: "visible",
+                }}
+                aria-label={image.alt || "Apple TV card"}
+            >
+                <img
+                    src={image.src}
+                    alt={image.alt || "Apple TV card"}
+                    style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                        borderRadius: 24,
+                        boxShadow: "0 8px 32px rgba(0,0,0,0.12)",
+                    }}
+                />
+            </div>
+        )
+    }
+
+    return (
+        <div
+            ref={cardRef}
+            style={{
+                ...containerStyle,
+                position: "relative",
+                perspective: 1000,
+                cursor: isHovered ? "pointer" : "default",
+                overflow: "visible",
+            }}
+            tabIndex={0}
+            aria-label={image.alt || "Apple TV card"}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+            onMouseMove={handleMouseMove}
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+            onTouchMove={handleTouchMove}
+        >
+            <div
+                style={{
+                    width: "100%",
+                    height: "100%",
+                    transform: `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(${currentScale})`,
+                    transition: `transform ${transition}s cubic-bezier(0.25, 0.8, 0.25, 1)`,
+                    transformOrigin: "center center",
+                    willChange: "transform",
+                    overflow: "visible",
+                }}
+            >
+                <img
+                    src={image.src}
+                    alt={image.alt || "Apple TV card"}
+                    draggable={false}
+                    style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                        borderRadius: 24,
+                        display: "block",
+                        boxShadow: isHovered
+                            ? "0 20px 60px rgba(0,0,0,0.25), 0 8px 24px rgba(0,0,0,0.15)"
+                            : "0 8px 32px rgba(0,0,0,0.12)",
+                        transition: `box-shadow ${transition}s ease-out`,
+                    }}
+                />
+            </div>
+        </div>
+    )
+}
+
+addPropertyControls(AppleTVTiltCard, {
+    size: {
+        type: ControlType.Number,
+        title: "Size (px)",
+        defaultValue: 320,
+        min: 100,
+        max: 800,
+        step: 10,
+    },
+    image: {
+        type: ControlType.ResponsiveImage,
+        title: "Image",
+    },
+    scale: {
+        type: ControlType.Number,
+        title: "Hover Scale",
+        defaultValue: 1.05,
+        min: 1,
+        max: 1.15,
+        step: 0.01,
+    },
+    tilt: {
+        type: ControlType.Number,
+        title: "3D Tilt",
+        defaultValue: 15,
+        min: 0,
+        max: 30,
+        step: 1,
+    },
+    transition: {
+        type: ControlType.Number,
+        title: "Transition Speed",
+        defaultValue: 0.6,
+        min: 0.2,
+        max: 1.5,
+        step: 0.1,
+    },
+})
